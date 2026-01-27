@@ -1,0 +1,11 @@
+{
+"type": "FeatureCollection",
+"name": "BunkerLayer",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "fid": 1, "Typ": "KSP", "Nr": "693", "Tillgänglighet": "Lätt tillgänglig från Råås strandpromenad", "Bild": "Kommande" }, "geometry": { "type": "Point", "coordinates": [ 12.724119544697173, 56.003620406312777 ] } },
+{ "type": "Feature", "properties": { "fid": 2, "Typ": "KSP?", "Nr": "692?", "Tillgänglighet": "Lättillgänglig via strandpromenaden vid Råå", "Bild": "Kommande" }, "geometry": { "type": "Point", "coordinates": [ 12.721190519285669, 56.004703497236328 ] } },
+{ "type": "Feature", "properties": { "fid": 3, "Typ": "N/A", "Nr": "691?", "Tillgänglighet": "Lättillgänglig men krävs att få tillstånd att komma in i område via grinden via baksida", "Bild": "Kommande" }, "geometry": { "type": "Point", "coordinates": [ 12.718192839282894, 56.006154001899091 ] } },
+{ "type": "Feature", "properties": { "fid": 4, "Typ": "Okänd", "Nr": "694?", "Tillgänglighet": "Lättillgänglig genom Råå stransdpromenad", "Bild": "Kommande" }, "geometry": { "type": "Point", "coordinates": [ 12.732940058919207, 56.000761023729808 ] } }
+]
+}
