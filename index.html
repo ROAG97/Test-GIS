@@ -26,12 +26,50 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   // 1. Skapa kartan
-  const map = L.map("map").setView([56.0465, 12.6945], 13);
+  const map = L.map("map").setView([56.0465, 12.6945], 16);
 
-  // 2. Bakgrundskarta
-  const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© OpenStreetMap"
-  }).addTo(map);
+  // 2. Bakgrundslager
+  const osm = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { attribution: "© OpenStreetMap" }
+  );
+
+  const esriSat = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    { attribution: "Tiles © Esri" }
+  );
+
+  // Lägg till ett lager som default
+
+  // 3. Lager-väljare
+  const baseMaps = {
+    "OpenStreetMap": osm,
+    "Satellit (ESRI)": esriSat
+  };
+
+// Ortofoto (overlay)
+const ortho = L.tileLayer("tiles_ortho/{z}/{x}/{y}.jpg", {
+  attribution: "© Robert Agnarp",
+  minZoom: 16,
+  maxZoom: 23,
+  opacity: 0.7, // kan ändra transparens
+  zIndex: 100
+});
+
+// Lägg till default-bakgrund
+osm.addTo(map);
+
+// Lagerkontroll (EN STYCK)
+L.control.layers(
+  {
+    "OpenStreetMap": osm,
+    "Satellit (ESRI)": esriSat
+  },
+  {
+    "Ortofoto (overlay)": ortho
+  },
+  { collapsed: false }
+).addTo(map);
 
   // 3. Ladda GeoJSON
   fetch("data/BunkerLayer.geojson")
@@ -46,10 +84,14 @@
       <b>Typ:</b> ${p.Typ || ""}<br>
       <b>Nr:</b> ${p.Nr || ""}<br>
       <b>Tillgänglighet:</b> ${p.Tillgänglighet || ""}<br>
-      <img src="${p.Bild || 'Pictures/DJI_0851.JPG'}" alt="${p.Nr || ''}"style="width:300px; height:auto;"><br>
-      </div>
-      `;
-      layer.bindPopup(popup);
+      <b>Parkering:</b> ${p.Parkering || ""}<br>
+      <b>Mindre kuriosa:</b> ${p["Mindre kuriosa"] || ""}<br>
+      <a href="${p.Bild || 'Pictures/DJI_0851.JPG'}" target="_blank">
+        <img src="${p.Bild || 'Pictures/DJI_0851.JPG'}" alt="${p.Nr || ''}" style="width:300px; height:auto;">
+      </a><br>
+    </div>
+  `;
+  layer.bindPopup(popup);
 }
 
       }).addTo(map);
