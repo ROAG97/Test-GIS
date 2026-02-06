@@ -77,24 +77,56 @@ L.control.layers(
     .then(data => {
       const layer = L.geoJSON(data, {
         pointToLayer: (feature, latlng) => L.marker(latlng),
-        onEachFeature: (feature, layer) => {
+    onEachFeature: (feature, layer) => {
   const p = feature.properties;
+
+  const hasImage =
+    p.Bild && p.Bild !== "-" && p.Bild.trim() !== "";
+
+  const hasModel =
+    p.Modell && p.Modell !== "-" && p.Modell.trim() !== "";
+
   const popup = `
     <div class="popup-content">
       <b>Typ:</b> ${p.Typ || ""}<br>
       <b>Nr:</b> ${p.Nr || ""}<br>
-      <b>Tillgänglighet:</b> ${p.Tillgänglighet || ""}<br>
+      <b>Tillgänglighet:</b> ${p["Tillgänglighet"] || ""}<br>
       <b>Parkering:</b> ${p.Parkering || ""}<br>
-      <b>Mindre kuriosa:</b> ${p["Mindre kuriosa"] || ""}<br>
-      <a href="${p.Bild || 'Pictures/DJI_0851.JPG'}" target="_blank">
-        <img src="${p.Bild || 'Pictures/DJI_0851.JPG'}" alt="${p.Nr || ''}" style="width:300px; height:auto;">
-      </a><br>
+      <b>Mindre kuriosa:</b> ${p["Mindre kuriosa"] || ""}<br><br>
+
+      ${
+        hasImage
+          ? `
+            <a href="${p.Bild}" target="_blank">
+              <img
+                src="${p.Bild}"
+                alt="Bild ${p.Nr || ""}"
+                style="
+                  width: 280px;
+                  height: auto;
+                  border-radius: 6px;
+                  cursor: zoom-in;
+                "
+              >
+            </a><br>
+          `
+          : `<i>📷 Bild saknas</i><br>`
+      }
+
+      ${
+        hasModel
+          ? `<br><a href="${p.Modell}" target="_blank">🔗 Visa 3D-modell</a>`
+          : ""
+      }
     </div>
   `;
-  layer.bindPopup(popup);
-}
 
-      }).addTo(map);
+  layer.bindPopup(popup, {
+    maxWidth: 400,  // bredare popup
+    minWidth: 350,
+    closeButton: true
+  });
+}      }).addTo(map);
 
       // Zooma till alla punkter
       map.fitBounds(layer.getBounds());
