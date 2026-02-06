@@ -6,39 +6,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-  html, body { margin:0; height:100%; }
-  #map { width: 100%; height: 100vh; }
-
-  /* Befintlig popup-stil */
-  .popup-content img {
-    width: 150px;
-    display: block;
-    margin-bottom: 5px;
-  }
-  .popup-content b {
-    color: #2a2a2a;
-  }
-
-  /* NYTT: galleri-stil */
-  .popup-content {
-    text-align: center;
-  }
-
-.popup-gallery {
-  display: flex;           /* horisontell rad */
-  overflow-x: auto;        /* scroll vid overflow */
-  gap: 10px;               /* mellanrum mellan bilder */
-  padding: 5px 0;
-}
-
-.popup-gallery img {
-  height: 150px;           /* samma höjd på alla bilder */
-  border-radius: 6px;
-  cursor: zoom-in;
-  flex-shrink: 0;          /* förhindrar att bilder krymper */
-}
-</style>
+  <style>
+    html, body { margin:0; height:100%; }
+    #map { width: 100%; height: 100vh; }
+    .popup-content img {
+      width: 150px;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .popup-content b {
+      color: #2a2a2a;
+    }
+  </style>
 </head>
 <body>
 
@@ -97,75 +76,28 @@ L.control.layers(
     .then(res => res.json())
     .then(data => {
       const layer = L.geoJSON(data, {
-  filter: feature => {
-    if (!feature.geometry) return false;
-
-    const c = feature.geometry.coordinates;
-    if (!Array.isArray(c)) return false;
-
-    const lng = Number(c[0]);
-    const lat = Number(c[1]);
-
-    return (
-      !isNaN(lat) &&
-      !isNaN(lng) &&
-      lat !== 0 &&
-      lng !== 0 &&
-      lat >= -90 && lat <= 90 &&
-      lng >= -180 && lng <= 180
-    );
-  },
-  pointToLayer: (feature, latlng) => L.marker(latlng),
-onEachFeature: (feature, layer) => {
+        pointToLayer: (feature, latlng) => L.marker(latlng),
+        onEachFeature: (feature, layer) => {
   const p = feature.properties;
-
-  // Om Bild är en array använd den, annars gör den till array med ett element
-  const images = Array.isArray(p.Bild) ? p.Bild : [p.Bild];
-
-  // Bygg HTML för bildkarusellen
-  let galleryHTML = "";
-  images.forEach(img => {
-    if (img && img !== "-" && img !== "Kommande") {
-      galleryHTML += `
-        <a href="${img}" target="_blank">
-          <img src="${img}" alt="Bild ${p.Nr || ""}">
-        </a>
-      `;
-    }
-  });
-
-  // Popup HTML
   const popup = `
     <div class="popup-content">
       <b>Typ:</b> ${p.Typ || ""}<br>
       <b>Nr:</b> ${p.Nr || ""}<br>
-      <b>Tillgänglighet:</b> ${p["Tillgänglighet"] || ""}<br>
+      <b>Tillgänglighet:</b> ${p.Tillgänglighet || ""}<br>
       <b>Parkering:</b> ${p.Parkering || ""}<br>
-      <b>Mindre kuriosa:</b> ${p["Mindre kuriosa"] || ""}<br><br>
-
-      <div class="popup-gallery">
-        ${galleryHTML || "<i>📷 Bild saknas</i>"}
-      </div><br>
-
-      ${
-        p.Modell && p.Modell !== "-"
-          ? `<a href="${p.Modell}" target="_blank">🔗 Visa 3D-modell</a>`
-          : ""
-      }
+      <b>Mindre kuriosa:</b> ${p["Mindre kuriosa"] || ""}<br>
+      <a href="${p.Bild || 'Pictures/DJI_0851.JPG'}" target="_blank">
+        <img src="${p.Bild || 'Pictures/DJI_0851.JPG'}" alt="${p.Nr || ''}" style="width:300px; height:auto;">
+      </a><br>
     </div>
   `;
-
-  layer.bindPopup(popup, { maxWidth: 550, minWidth: 350 });
+  layer.bindPopup(popup);
 }
+
       }).addTo(map);
 
       // Zooma till alla punkter
-      const bounds = layer.getBounds();
-      if (bounds.isValid()) {
-      map.fitBounds(bounds);
-      } else {
-        map.setView([56.0465, 12.6945], 16);
-}
+      map.fitBounds(layer.getBounds());
     })
     .catch(err => console.error("Misslyckades med att ladda GeoJSON:", err));
 
