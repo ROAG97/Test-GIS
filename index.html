@@ -25,41 +25,29 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  // 1. Skapa kartan
-  const map = L.map("map").setView([56.0465, 12.6945], 16);
 
-  // 2. Bakgrundslager
-  const osm = L.tileLayer(
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    { attribution: "© OpenStreetMap" }
-  );
+const map = L.map("map").setView([56.0465, 12.6945], 14);
 
-  const esriSat = L.tileLayer(
-    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    { attribution: "Tiles © Esri" }
-  );
+const osm = L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  { attribution: "© OpenStreetMap" }
+);
 
-  // Lägg till ett lager som default
+const esriSat = L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  { attribution: "Tiles © Esri" }
+);
 
-  // 3. Lager-väljare
-  const baseMaps = {
-    "OpenStreetMap": osm,
-    "Satellit (ESRI)": esriSat
-  };
-
-// Ortofoto (overlay)
 const ortho = L.tileLayer("tiles_ortho/{z}/{x}/{y}.jpg", {
   attribution: "© Robert Agnarp",
   minZoom: 16,
   maxZoom: 23,
-  opacity: 0.7, // kan ändra transparens
+  opacity: 0.7,
   zIndex: 100
 });
 
-// Lägg till default-bakgrund
 osm.addTo(map);
 
-// Lagerkontroll (EN STYCK)
 L.control.layers(
   {
     "OpenStreetMap": osm,
@@ -71,101 +59,97 @@ L.control.layers(
   { collapsed: false }
 ).addTo(map);
 
-  // 3. Ladda GeoJSON
-  fetch("data/BunkerLayer.geojson")
-    .then(res => res.json())
-    .then(data => {
-      const layer = L.geoJSON(data, {
-        pointToLayer: (feature, latlng) => L.marker(latlng),
-    onEachFeature: (feature, layer) => {
-  const p = feature.properties;
+fetch("data/BunkerLayer.geojson")
+  .then(res => res.json())
+  .then(data => {
 
-  const hasImage =
-    p.Bild && p.Bild !== "-" && p.Bild.trim() !== "";
+    const layer = L.geoJSON(data, {
+      pointToLayer: (feature, latlng) => L.marker(latlng),
 
-  const hasModel =
-    p.Modell && p.Modell !== "-" && p.Modell.trim() !== "";
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
 
-  const popup = `
-    <div class="popup-content">
-      <b>Typ:</b> ${p.Typ || ""}<br>
-      <b>Nr:</b> ${p.Nr || ""}<br>
-      <b>Tillgänglighet:</b> ${p["Tillgänglighet"] || ""}<br>
-      <b>Parkering:</b> ${p.Parkering || ""}<br>
-      <b>Mindre kuriosa:</b> ${p["Mindre kuriosa"] || ""}<br><br>
-      <b>Status:</b> ${p.Status || ""}<br>
-      <b>Plomberad:</b> ${p.Plomberad || ""}<br>
+        const hasImage =
+          p.Bild && p.Bild !== "-" && p.Bild.trim() !== "";
 
-      ${
-        hasImage
-          ? `
-            <a href="${p.Bild}" target="_blank">
-              <img
-                src="${p.Bild}"
-                alt="Bild ${p.Nr || ""}"
-                style="
-                  width: 280px;
-                  height: auto;
-                  border-radius: 6px;
-                  cursor: zoom-in;
-                "
-              >
-            </a><br>
-          `
-          : `<i>📷 Bild saknas</i><br>`
+        const hasModel =
+          p.Modell && p.Modell !== "-" && p.Modell.trim() !== "";
+
+        const popup = `
+          <div class="popup-content">
+            <b>Typ:</b> ${p.Typ || ""}<br>
+            <b>Nr:</b> ${p.Nr || ""}<br>
+            <b>Tillgänglighet:</b> ${p["Tillgänglighet"] || ""}<br>
+            <b>Parkering:</b> ${p.Parkering || ""}<br>
+            <b>Mindre kuriosa:</b> ${p["Mindre kuriosa"] || ""}<br>
+            <b>Status:</b> ${p.Status || ""}<br>
+            <b>Plomberad:</b> ${p.Plomberad || ""}<br>
+
+            ${
+              hasImage
+                ? `
+                  <a href="${p.Bild}" target="_blank">
+                    <img
+                      src="${p.Bild}"
+                      alt="Bild ${p.Nr || ""}"
+                      style="width:280px;height:auto;border-radius:6px;cursor:zoom-in;"
+                    >
+                  </a><br>
+                `
+                : `<i>📷 Bild saknas</i><br>`
+            }
+
+            ${
+              hasModel
+                ? `<br><a href="${p.Modell}" target="_blank">🔗 Visa 3D-modell</a>`
+                : ""
+            }
+          </div>
+        `;
+
+        layer.bindPopup(popup, {
+          maxWidth: 400,
+          minWidth: 350
+        });
       }
+    }).addTo(map);
 
-      ${
-        hasModel
-          ? `<br><a href="${p.Modell}" target="_blank">🔗 Visa 3D-modell</a>`
-          : ""
-      }
-    </div>
-  `;
+    const bounds = layer.getBounds();
+    if (bounds.isValid()) {
+      map.fitBounds(bounds);
+    }
 
-  layer.bindPopup(popup, {
-    maxWidth: 400,  // bredare popup
-    minWidth: 350,
-    closeButton: true
+  })
+  .catch(err => {
+    console.error("Misslyckades med att ladda GeoJSON:", err);
   });
-}      }).addTo(map);
-
-      // Zooma till alla punkter
-      map.fitBounds(layer.getBounds());
-    })
-    .catch(err => console.error("Misslyckades med att ladda GeoJSON:", err));
-
-    // Lägg till längst ner i ditt script, efter alla baslager och GeoJSON-laddning
 
 if (navigator.geolocation) {
-    navigator.geolocation.watchPosition(
-        function(position) {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
+  navigator.geolocation.watchPosition(
+    function(position) {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
 
-            // Skapa en orange marker på kartan
-            const userMarker = L.circleMarker([lat, lng], {
-                radius: 8,
-                color: '#ff8800',       // kantfärg orange
-                fillColor: '#ff8800',   // fyllfärg orange
-                fillOpacity: 0.9
-            }).addTo(map);
-
-            // Valfritt: popup med koordinater
-            userMarker.bindPopup(`Din position:<br>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`);
-        },
-        function(error) {
-            console.warn("Geolocation misslyckades:", error.message);
-        },
-        {
-            enableHighAccuracy: true,
-            maximumAge: 10000,
-            timeout: 5000
-        }
-    );
-} else {
-    alert("Din webbläsare stödjer inte geolocation.");
+      L.circleMarker([lat, lng], {
+        radius: 8,
+        color: '#ff8800',
+        fillColor: '#ff8800',
+        fillOpacity: 0.9
+      })
+      .addTo(map)
+      .bindPopup(`Din position:<br>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`);
+    },
+    function(error) {
+      console.warn("Geolocation misslyckades:", error.message);
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 10000,
+      timeout: 5000
+    }
+  );
 }
+
 </script>
 
 </body>
