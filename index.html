@@ -26,7 +26,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 
-const map = L.map("map").setView([56.0465, 12.6945], 14);
+const map = L.map("map").setView([56.0465, 12.6945], 10);
 
 const osm = L.tileLayer(
   "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -48,25 +48,133 @@ const ortho = L.tileLayer("tiles_ortho/{z}/{x}/{y}.jpg", {
 
 osm.addTo(map);
 
+//L.control.layers(
+  //{
+    //"OpenStreetMap": osm,
+    //"Satellit (ESRI)": esriSat
+  //},
+  //{
+    //"Ortofoto (overlay)": ortho
+  //},
+  //{ collapsed: false }
+//).addTo(map);
+
+// ================================
+// LFV DRÖNARRESTRIKTIONER
+// ================================
+
+const lfvNoFlyLayer = L.layerGroup();
+const lfvRestrictedLayer = L.layerGroup();
+
 L.control.layers(
   {
     "OpenStreetMap": osm,
     "Satellit (ESRI)": esriSat
   },
   {
-    "Ortofoto (overlay)": ortho
+    "Ortofoto (overlay)": ortho,
+    "🔴 Drönare – tillstånd krävs": lfvNoFlyLayer,
+    "🟠 Drönare – begränsad": lfvRestrictedLayer
   },
   { collapsed: false }
 ).addTo(map);
 
+fetch("data/lfv_dronarkarta.geojson")
+  .then(res => {
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    return res.json();
+  })
+  .then(data => {
+
+    L.geoJSON(data, {
+
+      style: function(feature) {
+
+        const farg = feature.properties?.Färg;
+
+        if (farg === "RÖD") {
+          return {
+            color: "#d00000",
+            weight: 3,
+            fillColor: "#d00000",
+            fillOpacity: 0.08
+          };
+        }
+
+        if (farg === "ORANGE") {
+          return {
+            color: "#ff8800",
+            weight: 3,
+            fillColor: "#ff8800",
+            fillOpacity: 0.08
+          };
+        }
+
+        return {
+          color: "#888888",
+          weight: 2,
+          fillOpacity: 0
+        };
+      },
+
+      onEachFeature: function(feature, layer) {
+
+        const p = feature.properties || {};
+
+        const popup = `
+          <div class="popup-content">
+            <b>Område:</b> ${p.NAMEOFAREA || "-"}<br>
+            <b>Typ:</b> ${p.TYPEOFAREA || "-"}<br>
+            <b>Plats:</b> ${p.LOCATION || "-"}<br>
+            <b>Undre gräns:</b> ${p.LOWER || "-"}<br>
+            <b>Övre gräns:</b> ${p.UPPER || "-"}<br>
+            <b>Gäller från:</b> ${p.WEF || "-"}<br>
+            <b>Klass:</b> ${p.Färg || "-"}
+          </div>
+        `;
+
+        layer.bindPopup(popup);
+
+        if (p.Färg === "RÖD") {
+          lfvNoFlyLayer.addLayer(layer);
+        }
+
+        if (p.Färg === "ORANGE") {
+          lfvRestrictedLayer.addLayer(layer);
+        }
+      }
+
+    });
+
+    // Rött lager på från början
+    lfvNoFlyLayer.addTo(map);
+
+    console.log("LFV GeoJSON laddat:", data.features.length, "features");
+
+  })
+  .catch(err => {
+    console.error("Misslyckades med att ladda LFV GeoJSON:", err);
+  });
+
 fetch("data/BunkerLayer.geojson")
-  .then(res => res.json())
+  .then(res => {
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    return res.json();
+  })
   .then(data => {
 
     const layer = L.geoJSON(data, {
-      pointToLayer: (feature, latlng) => L.marker(latlng),
+
+      pointToLayer: (feature, latlng) => {
+        return L.marker(latlng);
+      },
 
       onEachFeature: (feature, layer) => {
+
         const p = feature.properties || {};
 
         const hasImage =
@@ -77,6 +185,7 @@ fetch("data/BunkerLayer.geojson")
 
         const popup = `
           <div class="popup-content">
+
             <b>Typ:</b> ${p.Typ || ""}<br>
             <b>Nr:</b> ${p.Nr || ""}<br>
             <b>Tillgänglighet:</b> ${p["Tillgänglighet"] || ""}<br>
@@ -101,9 +210,13 @@ fetch("data/BunkerLayer.geojson")
 
             ${
               hasModel
-                ? `<br><a href="${p.Modell}" target="_blank">🔗 Visa 3D-modell</a>`
+                ? `<br>
+                   <a href="${p.Modell}" target="_blank">
+                     🔗 Visa 3D-modell
+                   </a>`
                 : ""
             }
+
           </div>
         `;
 
@@ -112,16 +225,12 @@ fetch("data/BunkerLayer.geojson")
           minWidth: 350
         });
       }
-    }).addTo(map);
 
-    const bounds = layer.getBounds();
-    if (bounds.isValid()) {
-      map.fitBounds(bounds);
-    }
+    }).addTo(map);
 
   })
   .catch(err => {
-    console.error("Misslyckades med att ladda GeoJSON:", err);
+    console.error("Misslyckades med att ladda Bunker GeoJSON:", err);
   });
 
 if (navigator.geolocation) {
