@@ -66,6 +66,9 @@ osm.addTo(map);
 const lfvNoFlyLayer = L.layerGroup();
 const lfvRestrictedLayer = L.layerGroup();
 
+const draktanderRivenLayer = L.layerGroup();
+const draktanderKvarLayer = L.layerGroup();
+
 L.control.layers(
   {
     "OpenStreetMap": osm,
@@ -74,7 +77,11 @@ L.control.layers(
   {
     "Ortofoto (overlay)": ortho,
     "🔴 Drönare – tillstånd krävs": lfvNoFlyLayer,
-    "🟠 Drönare – begränsad": lfvRestrictedLayer
+    "🟠 Drönare – begränsad": lfvRestrictedLayer,
+
+    "🔴 Draktänder – rivna": draktanderRivenLayer,
+    "🟢 Draktänder – kvar": draktanderKvarLayer,
+
   },
   { collapsed: false }
 ).addTo(map);
@@ -157,6 +164,87 @@ fetch("data/lfv_dronarkarta.geojson")
   .catch(err => {
     console.error("Misslyckades med att ladda LFV GeoJSON:", err);
   });
+
+// ================================
+// DRAKTÄNDER
+// ================================
+
+fetch("data/draktander.geojson")
+  .then(res => {
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+    return res.json();
+  })
+  .then(data => {
+
+    L.geoJSON(data, {
+
+      style: function(feature) {
+
+        const status = feature.properties?.STATUS;
+
+        if (status === "RIVET") {
+          return {
+            color: "#ff0000",
+            weight: 5,
+            opacity: 1
+          };
+        }
+
+        if (status === "KVAR") {
+          return {
+            color: "#00a000",
+            weight: 5,
+            opacity: 1
+          };
+        }
+
+        return {
+          color: "#888888",
+          weight: 4,
+          opacity: 1
+        };
+      },
+
+      onEachFeature: function(feature, layer) {
+
+        const p = feature.properties || {};
+
+        const popup = `
+          <div class="popup-content">
+            <b>Status:</b> ${p.STATUS || "-"}<br>
+            <b>ID:</b> ${p.id || "-"}<br>
+          </div>
+        `;
+
+        layer.bindPopup(popup);
+
+        if (p.STATUS === "RIVET") {
+          draktanderRivenLayer.addLayer(layer);
+        }
+
+        if (p.STATUS === "KVAR") {
+          draktanderKvarLayer.addLayer(layer);
+        }
+      }
+
+    });
+
+    console.log(
+      "Draktänder laddade:",
+      data.features.length,
+      "features"
+    );
+
+  })
+  .catch(err => {
+    console.error("Misslyckades med att ladda Draktänder GeoJSON:", err);
+  });
+
+// ===============================
+// Bunker punkter
+// ===============================
 
 fetch("data/BunkerLayer.geojson")
   .then(res => {
