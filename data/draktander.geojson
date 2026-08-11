@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"name": "draktander",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "fid": 1, "STATUS": "KVAR", "id": null, "layer": "draktander", "path": "/run/media/ragnarp/Samung 870 QVO/QGIS/SAVES/draktander.gpkg|layername=draktander" }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ 12.547361875905114, 56.201579992251041 ], [ 12.547408653883213, 56.201451887115603 ], [ 12.547469825085342, 56.201375824488991 ], [ 12.547793672626028, 56.20097549238902 ] ] ] } },
+{ "type": "Feature", "properties": { "fid": null, "STATUS": "RIVET", "id": null, "layer": "draktander_rivna", "path": "/run/media/ragnarp/Samung 870 QVO/QGIS/SAVES/draktander.shp" }, "geometry": { "type": "MultiLineString", "coordinates": [ [ [ 12.547790074320023, 56.20097349071802 ], [ 12.547833253992113, 56.200585164568373 ], [ 12.547635347161691, 56.200334952337656 ], [ 12.547869237052192, 56.200286911402571 ], [ 12.547833253992113, 56.199436176543202 ] ] ] } }
+]
+}
