@@ -180,40 +180,41 @@ fetch("data/draktander.geojson")
 
     L.geoJSON(data, {
 
-      style: function(feature) {
+style: function(feature) {
 
-        const status = feature.properties?.STATUS;
+  const status = feature.properties?.STATUS;
 
-        if (status === "RIVET") {
-          return {
-            color: "#ff0000",
-            weight: 5,
-            opacity: 1
-          };
-        }
+  if (status === "RIVET") {
+    return {
+      color: "#ff0000",
+      weight: 5,
+      opacity: 1
+    };
+  }
 
-        if (status === "KVAR") {
-          return {
-            color: "#00a000",
-            weight: 5,
-            opacity: 1
-          };
-        }
+  if (status === "KVAR") {
+    return {
+      color: "#00a000",
+      weight: 5,
+      opacity: 1
+    };
+  }
 
-        return {
-          color: "#888888",
-          weight: 4,
-          opacity: 1
-        };
-      },
-
-      if (status === "BEVARAD") {
-      return {
+  if (status === "BEVARAD") {
+    return {
       color: "#ff8800",
       weight: 5,
       opacity: 1
-      };
-      }
+    };
+  }
+
+  return {
+    color: "#888888",
+    weight: 4,
+    opacity: 1
+  };
+},
+
 
       onEachFeature: function(feature, layer) {
 
