@@ -207,6 +207,14 @@ fetch("data/draktander.geojson")
         };
       },
 
+      if (status === "BEVARAD") {
+      return {
+      color: "#ff8800",
+      weight: 5,
+      opacity: 1
+      };
+      }
+
       onEachFeature: function(feature, layer) {
 
         const p = feature.properties || {};
