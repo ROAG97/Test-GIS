@@ -68,6 +68,7 @@ const lfvRestrictedLayer = L.layerGroup();
 
 const draktanderRivenLayer = L.layerGroup();
 const draktanderKvarLayer = L.layerGroup();
+const draktanderBevaradLayer = L.layerGroup();
 
 L.control.layers(
   {
@@ -81,6 +82,7 @@ L.control.layers(
 
     "🔴 Draktänder – rivna": draktanderRivenLayer,
     "🟢 Draktänder – kvar": draktanderKvarLayer,
+    "🟠 Draktänder – bevarade/flyttade": draktanderBevaradLayer,
 
   },
   { collapsed: false }
@@ -235,6 +237,10 @@ style: function(feature) {
 
         if (p.STATUS === "KVAR") {
           draktanderKvarLayer.addLayer(layer);
+        }
+
+        if (p.STATUS === "BEVARAD") {
+        draktanderBevaradLayer.addLayer(layer);
         }
       }
 
