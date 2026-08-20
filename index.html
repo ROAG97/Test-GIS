@@ -261,6 +261,29 @@ style: function(feature) {
 // Bunker punkter
 // ===============================
 
+const bunkerIcons = {
+
+   "Observationsvärn": L.icon({
+    iconUrl: "icons/Observationsvärn.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+   "KSP III": L.icon({
+    iconUrl: "icons/KSPIII.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+    "KSP IV": L.icon({
+    iconUrl: "icons/KSPIV.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+
+};
+
 fetch("data/BunkerLayer.geojson")
   .then(res => {
     if (!res.ok) {
@@ -273,8 +296,18 @@ fetch("data/BunkerLayer.geojson")
     const layer = L.geoJSON(data, {
 
       pointToLayer: (feature, latlng) => {
-        return L.marker(latlng);
-      },
+
+  const typ = feature.properties?.Typ;
+  const icon = bunkerIcons[typ];
+
+  if (icon) {
+    return L.marker(latlng, {
+      icon: icon
+    });
+  }
+
+  return L.marker(latlng);
+},
 
       onEachFeature: (feature, layer) => {
 
