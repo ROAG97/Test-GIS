@@ -2,7 +2,7 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8">
-  <title>Leaflet – Kustförsvarsanläggningar</title>
+  <title>Leaflet – Bunkerkarta</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -29,53 +29,111 @@
     }
 
     /* ================================
-       EGEN LAGERMENY
+       EGEN FILTERMENY
        ================================ */
 
-    .layer-menu {
+    .filter-control {
+      position: relative;
+      z-index: 1000;
+    }
+
+    .filter-button {
       background: white;
-      padding: 8px;
+      border: 2px solid rgba(0,0,0,0.2);
       border-radius: 5px;
-      box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-      font-family: Arial, sans-serif;
-      min-width: 230px;
-      max-height: 90vh;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: bold;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.25);
+    }
+
+    .filter-menu {
+      display: none;
+      background: white;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 5px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+
+      width: 260px;
+      max-height: 80vh;
       overflow-y: auto;
     }
 
-    .layer-section {
+    .filter-menu.open {
+      display: block;
+    }
+
+    .filter-section-title {
+      font-weight: bold;
+      font-size: 14px;
+      margin-top: 8px;
       margin-bottom: 5px;
     }
 
-    .layer-header {
-      font-weight: bold;
+    .filter-option {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 2px;
       cursor: pointer;
-      padding: 7px 5px;
-      user-select: none;
+      font-size: 14px;
     }
 
-    .layer-header:hover {
-      background: #f0f0f0;
-    }
-
-    .layer-options {
-      padding: 4px 8px 7px 8px;
-    }
-
-    .layer-options label {
-      display: block;
-      margin: 5px 0;
+    .filter-option input {
       cursor: pointer;
-      font-weight: normal;
+      flex-shrink: 0;
     }
 
-    .layer-options input {
-      margin-right: 6px;
+    .filter-icon {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+      flex-shrink: 0;
     }
 
-    .layer-separator {
+    .filter-divider {
+      border: 0;
       border-top: 1px solid #999;
-      margin: 8px 0;
+      margin: 10px 0;
+    }
+
+    .filter-status-color {
+      width: 18px;
+      height: 4px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .red {
+      background: #ff0000;
+    }
+
+    .green {
+      background: #00a000;
+    }
+
+    .orange {
+      background: #ff8800;
+    }
+
+    .gray {
+      background: #777777;
+    }
+
+    /* Mobil */
+    @media (max-width: 600px) {
+
+      .filter-menu {
+        width: calc(100vw - 40px);
+        max-width: 320px;
+        max-height: 75vh;
+      }
+
+      .filter-button {
+        font-size: 14px;
+      }
     }
   </style>
 </head>
@@ -91,9 +149,9 @@
 const map = L.map("map").setView([56.0465, 12.6945], 10);
 
 
-// =====================================================
+// ================================
 // KARTUNDERLAG
-// =====================================================
+// ================================
 
 const osm = L.tileLayer(
   "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -123,26 +181,32 @@ const ortho = L.tileLayer(
 osm.addTo(map);
 
 
-// =====================================================
+// ================================
 // LAGER
-// =====================================================
+// ================================
 
 // Drönare
+
 const lfvNoFlyLayer = L.layerGroup();
 const lfvRestrictedLayer = L.layerGroup();
 
-// Draktänder
+
+// Draktänder / värn
+
 const draktanderRivenLayer = L.layerGroup();
 const draktanderKvarLayer = L.layerGroup();
 const draktanderBevaradLayer = L.layerGroup();
-
-// Bunkrar
-const bunkerLayers = {};
+const draktanderOkandLayer = L.layerGroup();
 
 
-// =====================================================
+// Bunkertyper
+
+const bunkerTypeLayers = {};
+
+
+// ================================
 // SVG-IKONER
-// =====================================================
+// ================================
 
 const bunkerIcons = {
 
@@ -219,400 +283,305 @@ const bunkerIcons = {
 };
 
 
-// =====================================================
-// SKAPA BUNKER-LAGER
-// =====================================================
+// ================================
+// EGEN KARTKONTROLL
+// ================================
 
-Object.keys(bunkerIcons).forEach(typ => {
-  bunkerLayers[typ] = L.layerGroup();
-});
+const FilterControl = L.Control.extend({
 
+  options: {
+    position: "topright"
+  },
 
-// =====================================================
-// EGEN LAGERMENY
-// =====================================================
+  onAdd: function() {
 
-const layerMenu = L.control({
-  position: "topright"
-});
+    const container = L.DomUtil.create(
+      "div",
+      "filter-control"
+    );
 
-layerMenu.onAdd = function(map) {
+    L.DomEvent.disableClickPropagation(container);
 
-  const div = L.DomUtil.create("div", "layer-menu");
+    container.innerHTML = `
 
-  div.innerHTML = `
+      <button class="filter-button">
+        ☰ Karta
+      </button>
 
-    <!-- KARTUNDERLAG -->
+      <div class="filter-menu">
 
-    <div class="layer-section">
+        <!-- =========================
+             KARTUNDERLAG
+             ========================= -->
 
-      <div class="layer-header" data-section="kartunderlag">
-        🗺️ Kartunderlag ▼
-      </div>
+        <div class="filter-section-title">
+          Kartunderlag
+        </div>
 
-      <div class="layer-options" id="kartunderlag">
-
-        <label>
+        <label class="filter-option">
           <input type="radio"
                  name="basemap"
-                 id="osmRadio"
+                 value="osm"
                  checked>
           OpenStreetMap
         </label>
 
-        <label>
+        <label class="filter-option">
           <input type="radio"
                  name="basemap"
-                 id="esriRadio">
+                 value="satellite">
           Satellit (ESRI)
         </label>
 
-        <label>
+        <label class="filter-option">
           <input type="checkbox"
-                 id="orthoCheck">
+                 id="orthoToggle">
           Ortofoto
         </label>
 
-      </div>
 
-    </div>
+        <!-- =========================
+             DRÖNARRESTRIKTIONER
+             ========================= -->
 
+        <hr class="filter-divider">
 
-    <!-- DRÖNARE -->
+        <div class="filter-section-title">
+          Drönarrestriktioner
+        </div>
 
-    <div class="layer-section">
-
-      <div class="layer-header" data-section="dronare">
-        🛩️ Drönarrestriktioner ▼
-      </div>
-
-      <div class="layer-options" id="dronare">
-
-        <label>
+        <label class="filter-option">
           <input type="checkbox"
-                 id="lfvRed">
-          🔴 Tillstånd krävs
+                 id="lfvNoFly">
+          <span class="filter-status-color red"></span>
+          Tillstånd krävs
         </label>
 
-        <label>
+        <label class="filter-option">
           <input type="checkbox"
-                 id="lfvOrange">
-          🟠 Begränsad
+                 id="lfvRestricted">
+          <span class="filter-status-color orange"></span>
+          Begränsad
         </label>
 
-      </div>
 
-    </div>
+        <!-- =========================
+             BUNKERTYPER
+             ========================= -->
+
+        <hr class="filter-divider">
+
+        <div class="filter-section-title">
+          Bunkertyper
+        </div>
+
+        <div id="bunkerFilters"></div>
 
 
-    <!-- DRAKTÄNDER -->
+        <!-- =========================
+             VÄRN / DRAKTÄNDER
+             ========================= -->
 
-    <div class="layer-section">
+        <hr class="filter-divider">
 
-      <div class="layer-header" data-section="draktander">
-        🧱 Draktänder ▼
-      </div>
+        <div class="filter-section-title">
+          Värn / draktänder
+        </div>
 
-      <div class="layer-options" id="draktander">
-
-        <label>
-          <input type="checkbox"
-                 id="draktanderKvar">
-          🟢 Kvar
-        </label>
-
-        <label>
-          <input type="checkbox"
-                 id="draktanderBevarad">
-          🟠 Bevarade/flyttade
-        </label>
-
-        <label>
+        <label class="filter-option">
           <input type="checkbox"
                  id="draktanderRiven">
-          🔴 Rivna
+          <span class="filter-status-color red"></span>
+          Rivna
+        </label>
+
+        <label class="filter-option">
+          <input type="checkbox"
+                 id="draktanderKvar">
+          <span class="filter-status-color green"></span>
+          Kvar
+        </label>
+
+        <label class="filter-option">
+          <input type="checkbox"
+                 id="draktanderBevarad">
+          <span class="filter-status-color orange"></span>
+          Bevarade / flyttade
+        </label>
+
+        <label class="filter-option">
+          <input type="checkbox"
+                 id="draktanderOkand">
+          <span class="filter-status-color gray"></span>
+          Okända
         </label>
 
       </div>
-
-    </div>
-
-
-    <!-- BUNKRAR -->
-
-    <div class="layer-section">
-
-      <div class="layer-header" data-section="bunkrar">
-        🏰 Bunkertyper ▼
-      </div>
-
-      <div class="layer-options" id="bunkrar">
-
-        <label>
-          <input type="checkbox" data-bunker="KSP">
-          KSP
-        </label>
-
-        <label>
-          <input type="checkbox" data-bunker="KSP I">
-          KSP I
-        </label>
-
-        <label>
-          <input type="checkbox" data-bunker="KSP II">
-          KSP II
-        </label>
-
-        <label>
-          <input type="checkbox" data-bunker="KSP III">
-          KSP III
-        </label>
-
-        <label>
-          <input type="checkbox" data-bunker="KSP IV">
-          KSP IV
-        </label>
-
-        <label>
-          <input type="checkbox" data-bunker="KSP V">
-          KSP V
-        </label>
-
-        <label>
-          <input type="checkbox" data-bunker="Observationsvärn">
-          Observationsvärn
-        </label>
-
-        <label>
-          <input type="checkbox" data-bunker="Skyddsrum">
-          Skyddsrum
-        </label>
-
-        <label>
-          <input type="checkbox" data-bunker="KG">
-          KG
-        </label>
-
-        <label>
-          <input type="checkbox" data-bunker="PV">
-          PV
-        </label>
-
-      </div>
-
-    </div>
-
-  `;
-
-  L.DomEvent.disableClickPropagation(div);
-
-  return div;
-};
-
-layerMenu.addTo(map);
+    `;
 
 
-// =====================================================
-// HOPFÄLLNING AV MENYER
-// =====================================================
+    // ================================
+    // ÖPPNA / STÄNG MENY
+    // ================================
 
-document.addEventListener("click", function(e) {
+    const button =
+      container.querySelector(".filter-button");
 
-  const header = e.target.closest(".layer-header");
+    const menu =
+      container.querySelector(".filter-menu");
 
-  if (!header) {
-    return;
-  }
+    button.addEventListener("click", function() {
 
-  const sectionId = header.dataset.section;
-  const section = document.getElementById(sectionId);
+      menu.classList.toggle("open");
 
-  if (!section) {
-    return;
-  }
+    });
 
-  if (section.style.display === "none") {
 
-    section.style.display = "block";
+    // ================================
+    // KARTUNDERLAG
+    // ================================
 
-    header.textContent =
-      header.textContent.replace("▶", "▼");
+    container
+      .querySelectorAll('input[name="basemap"]')
+      .forEach(input => {
 
-  } else {
+        input.addEventListener("change", function() {
 
-    section.style.display = "none";
+          if (this.value === "osm") {
 
-    header.textContent =
-      header.textContent.replace("▼", "▶");
+            map.removeLayer(esriSat);
+            osm.addTo(map);
 
+          }
+
+          if (this.value === "satellite") {
+
+            map.removeLayer(osm);
+            esriSat.addTo(map);
+
+          }
+
+        });
+
+      });
+
+
+    // Ortofoto
+
+    container
+      .querySelector("#orthoToggle")
+      .addEventListener("change", function() {
+
+        if (this.checked) {
+          ortho.addTo(map);
+        } else {
+          map.removeLayer(ortho);
+        }
+
+      });
+
+
+    // ================================
+    // DRÖNARRESTRIKTIONER
+    // ================================
+
+    container
+      .querySelector("#lfvNoFly")
+      .addEventListener("change", function() {
+
+        if (this.checked) {
+          lfvNoFlyLayer.addTo(map);
+        } else {
+          map.removeLayer(lfvNoFlyLayer);
+        }
+
+      });
+
+
+    container
+      .querySelector("#lfvRestricted")
+      .addEventListener("change", function() {
+
+        if (this.checked) {
+          lfvRestrictedLayer.addTo(map);
+        } else {
+          map.removeLayer(lfvRestrictedLayer);
+        }
+
+      });
+
+
+    // ================================
+    // DRAKTÄNDER
+    // ================================
+
+    container
+      .querySelector("#draktanderRiven")
+      .addEventListener("change", function() {
+
+        if (this.checked) {
+          draktanderRivenLayer.addTo(map);
+        } else {
+          map.removeLayer(draktanderRivenLayer);
+        }
+
+      });
+
+
+    container
+      .querySelector("#draktanderKvar")
+      .addEventListener("change", function() {
+
+        if (this.checked) {
+          draktanderKvarLayer.addTo(map);
+        } else {
+          map.removeLayer(draktanderKvarLayer);
+        }
+
+      });
+
+
+    container
+      .querySelector("#draktanderBevarad")
+      .addEventListener("change", function() {
+
+        if (this.checked) {
+          draktanderBevaradLayer.addTo(map);
+        } else {
+          map.removeLayer(draktanderBevaradLayer);
+        }
+
+      });
+
+
+    container
+      .querySelector("#draktanderOkand")
+      .addEventListener("change", function() {
+
+        if (this.checked) {
+          draktanderOkandLayer.addTo(map);
+        } else {
+          map.removeLayer(draktanderOkandLayer);
+        }
+
+      });
+
+
+    return container;
   }
 
 });
 
-
-// =====================================================
-// KARTUNDERLAG – FUNKTIONER
-// =====================================================
-
-document.getElementById("osmRadio").addEventListener(
-  "change",
-  function() {
-
-    if (this.checked) {
-
-      map.removeLayer(esriSat);
-      map.addLayer(osm);
-
-    }
-
-  }
+map.addControl(
+  new FilterControl()
 );
 
 
-document.getElementById("esriRadio").addEventListener(
-  "change",
-  function() {
-
-    if (this.checked) {
-
-      map.removeLayer(osm);
-      map.addLayer(esriSat);
-
-    }
-
-  }
-);
-
-
-document.getElementById("orthoCheck").addEventListener(
-  "change",
-  function() {
-
-    if (this.checked) {
-      map.addLayer(ortho);
-    } else {
-      map.removeLayer(ortho);
-    }
-
-  }
-);
-
-
-// =====================================================
-// DRÖNARRESTRIKTIONER – CHECKBOXAR
-// =====================================================
-
-document.getElementById("lfvRed").addEventListener(
-  "change",
-  function() {
-
-    if (this.checked) {
-      map.addLayer(lfvNoFlyLayer);
-    } else {
-      map.removeLayer(lfvNoFlyLayer);
-    }
-
-  }
-);
-
-
-document.getElementById("lfvOrange").addEventListener(
-  "change",
-  function() {
-
-    if (this.checked) {
-      map.addLayer(lfvRestrictedLayer);
-    } else {
-      map.removeLayer(lfvRestrictedLayer);
-    }
-
-  }
-);
-
-
-// =====================================================
-// DRAKTÄNDER – CHECKBOXAR
-// =====================================================
-
-document.getElementById("draktanderKvar").addEventListener(
-  "change",
-  function() {
-
-    if (this.checked) {
-      map.addLayer(draktanderKvarLayer);
-    } else {
-      map.removeLayer(draktanderKvarLayer);
-    }
-
-  }
-);
-
-
-document.getElementById("draktanderBevarad").addEventListener(
-  "change",
-  function() {
-
-    if (this.checked) {
-      map.addLayer(draktanderBevaradLayer);
-    } else {
-      map.removeLayer(draktanderBevaradLayer);
-    }
-
-  }
-);
-
-
-document.getElementById("draktanderRiven").addEventListener(
-  "change",
-  function() {
-
-    if (this.checked) {
-      map.addLayer(draktanderRivenLayer);
-    } else {
-      map.removeLayer(draktanderRivenLayer);
-    }
-
-  }
-);
-
-
-// =====================================================
-// BUNKERTYPER – CHECKBOXAR
-// =====================================================
-
-document.querySelectorAll(
-  "[data-bunker]"
-).forEach(checkbox => {
-
-  checkbox.addEventListener(
-    "change",
-    function() {
-
-      const typ = this.dataset.bunker;
-      const layer = bunkerLayers[typ];
-
-      if (!layer) {
-        return;
-      }
-
-      if (this.checked) {
-        map.addLayer(layer);
-      } else {
-        map.removeLayer(layer);
-      }
-
-    }
-  );
-
-});
-
-
-// =====================================================
+// ================================
 // LFV DRÖNARKARTA
-// =====================================================
+// ================================
 
 fetch("data/lfv_dronarkarta.geojson")
-
   .then(res => {
 
     if (!res.ok) {
@@ -699,42 +668,42 @@ fetch("data/lfv_dronarkarta.geojson")
 
           layer.bindPopup(popup);
 
+
           if (p.Färg === "RÖD") {
-            lfvNoFlyLayer.addLayer(layer);
+
+            lfvNoFlyLayer
+              .addLayer(layer);
+
           }
 
           if (p.Färg === "ORANGE") {
-            lfvRestrictedLayer.addLayer(layer);
+
+            lfvRestrictedLayer
+              .addLayer(layer);
+
           }
 
         }
 
     });
 
-    console.log(
-      "LFV GeoJSON laddat:",
-      data.features.length,
-      "features"
-    );
-
   })
 
   .catch(err => {
 
     console.error(
-      "Misslyckades med att ladda LFV GeoJSON:",
+      "Misslyckades med LFV:",
       err
     );
 
   });
 
 
-// =====================================================
+// ================================
 // DRAKTÄNDER
-// =====================================================
+// ================================
 
 fetch("data/draktander.geojson")
-
   .then(res => {
 
     if (!res.ok) {
@@ -785,12 +754,13 @@ fetch("data/draktander.geojson")
         }
 
         return {
-          color: "#888888",
-          weight: 4,
+          color: "#777777",
+          weight: 5,
           opacity: 1
         };
 
       },
+
 
       onEachFeature:
         function(feature, layer) {
@@ -814,46 +784,59 @@ fetch("data/draktander.geojson")
 
           layer.bindPopup(popup);
 
+
           if (p.STATUS === "RIVET") {
-            draktanderRivenLayer.addLayer(layer);
+
+            draktanderRivenLayer
+              .addLayer(layer);
+
           }
 
           if (p.STATUS === "KVAR") {
-            draktanderKvarLayer.addLayer(layer);
+
+            draktanderKvarLayer
+              .addLayer(layer);
+
           }
 
           if (p.STATUS === "BEVARAD") {
-            draktanderBevaradLayer.addLayer(layer);
+
+            draktanderBevaradLayer
+              .addLayer(layer);
+
+          }
+
+          if (
+            !p.STATUS ||
+            p.STATUS === "OKAND"
+          ) {
+
+            draktanderOkandLayer
+              .addLayer(layer);
+
           }
 
         }
 
     });
 
-    console.log(
-      "Draktänder laddade:",
-      data.features.length,
-      "features"
-    );
-
   })
 
   .catch(err => {
 
     console.error(
-      "Misslyckades med att ladda Draktänder:",
+      "Misslyckades med Draktänder:",
       err
     );
 
   });
 
 
-// =====================================================
+// ================================
 // BUNKERLAGER
-// =====================================================
+// ================================
 
 fetch("data/BunkerLayer.geojson")
-
   .then(res => {
 
     if (!res.ok) {
@@ -877,18 +860,28 @@ fetch("data/BunkerLayer.geojson")
           const icon =
             bunkerIcons[typ];
 
-          if (icon) {
+          const marker =
+            icon
+              ? L.marker(latlng, {
+                  icon: icon
+                })
+              : L.marker(latlng);
 
-            return L.marker(
-              latlng,
-              {
-                icon: icon
-              }
-            );
+
+          // Skapa lager för typen
+
+          if (!bunkerTypeLayers[typ]) {
+
+            bunkerTypeLayers[typ] =
+              L.layerGroup();
 
           }
 
-          return L.marker(latlng);
+          bunkerTypeLayers[typ]
+            .addLayer(marker);
+
+
+          return marker;
 
         },
 
@@ -898,9 +891,6 @@ fetch("data/BunkerLayer.geojson")
 
           const p =
             feature.properties || {};
-
-          const typ =
-            p.Typ;
 
           const hasImage =
             p.Bild &&
@@ -947,8 +937,9 @@ fetch("data/BunkerLayer.geojson")
 
               ${
                 hasImage
+                ?
 
-                ? `
+                `
 
                   <a href="${p.Bild}"
                      target="_blank">
@@ -970,15 +961,18 @@ fetch("data/BunkerLayer.geojson")
 
                 `
 
-                : `<i>📷 Bild saknas</i><br>`
+                :
+
+                `<i>📷 Bild saknas</i><br>`
 
               }
 
 
               ${
                 hasModel
+                ?
 
-                ? `
+                `
 
                   <br>
 
@@ -991,7 +985,9 @@ fetch("data/BunkerLayer.geojson")
 
                 `
 
-                : ""
+                :
+
+                ""
 
               }
 
@@ -1000,49 +996,172 @@ fetch("data/BunkerLayer.geojson")
           `;
 
 
-          layer.bindPopup(
-            popup,
-            {
-              maxWidth: 400,
-              minWidth: 350
-            }
-          );
+          layer.bindPopup(popup, {
 
+            maxWidth: 400,
+            minWidth: 350
 
-          // Lägg objektet i rätt filterlager
-
-          if (bunkerLayers[typ]) {
-
-            bunkerLayers[typ]
-              .addLayer(layer);
-
-          }
+          });
 
         }
 
     });
 
-    console.log(
-      "Bunkrar laddade:",
-      data.features.length,
-      "features"
-    );
+
+    // ================================
+    // SKAPA FILTER FÖR BUNKERTYPER
+    // ================================
+
+    const bunkerFilterContainer =
+      document.querySelector(
+        "#bunkerFilters"
+      );
+
+
+    Object.keys(bunkerTypeLayers)
+      .sort()
+      .forEach(typ => {
+
+        const layer =
+          bunkerTypeLayers[typ];
+
+
+        // Alla bunkertyper PÅ från början
+
+        layer.addTo(map);
+
+
+        const icon =
+          bunkerIcons[typ];
+
+
+        const iconHTML =
+          icon
+
+          ?
+
+          `
+
+            <img
+              src="icons/${getIconFilename(typ)}"
+              class="filter-icon"
+            >
+
+          `
+
+          :
+
+          "";
+
+
+        const label =
+          document.createElement("label");
+
+        label.className =
+          "filter-option";
+
+
+        label.innerHTML = `
+
+          <input
+            type="checkbox"
+            checked
+          >
+
+          ${iconHTML}
+
+          <span>${typ}</span>
+
+        `;
+
+
+        const checkbox =
+          label.querySelector("input");
+
+
+        checkbox.addEventListener(
+          "change",
+          function() {
+
+            if (this.checked) {
+
+              layer.addTo(map);
+
+            } else {
+
+              map.removeLayer(layer);
+
+            }
+
+          }
+        );
+
+
+        bunkerFilterContainer
+          .appendChild(label);
+
+      });
 
   })
 
   .catch(err => {
 
     console.error(
-      "Misslyckades med att ladda Bunker GeoJSON:",
+      "Misslyckades med BunkerLayer:",
       err
     );
 
   });
 
 
-// =====================================================
-// GPS POSITION
-// =====================================================
+// ================================
+// HJÄLPFUNKTION FÖR SVG-FILNAMN
+// ================================
+
+function getIconFilename(typ) {
+
+  const filenames = {
+
+    "Observationsvärn":
+      "Observationsvärn.svg",
+
+    "Skyddsrum":
+      "SKYDDSRUM.svg",
+
+    "KG":
+      "KG.svg",
+
+    "PV":
+      "PV.svg",
+
+    "KSP":
+      "QGIS.svg",
+
+    "KSP I":
+      "KSPI.svg",
+
+    "KSP II":
+      "KSPII.svg",
+
+    "KSP III":
+      "KSPIII.svg",
+
+    "KSP IV":
+      "KSPIV.svg",
+
+    "KSP V":
+      "KSPV.svg"
+
+  };
+
+  return filenames[typ] || "";
+
+}
+
+
+// ================================
+// GPS
+// ================================
 
 if (navigator.geolocation) {
 
@@ -1060,22 +1179,35 @@ if (navigator.geolocation) {
       L.circleMarker(
         [lat, lng],
         {
+
           radius: 8,
+
           color: "#ff8800",
+
           fillColor: "#ff8800",
+
           fillOpacity: 0.9
+
         }
+
       )
 
       .addTo(map)
 
-      .bindPopup(
-        `Din position:<br>
-         Lat: ${lat.toFixed(6)},
-         Lng: ${lng.toFixed(6)}`
-      );
+      .bindPopup(`
+
+        Din position:<br>
+
+        Lat:
+        ${lat.toFixed(6)}<br>
+
+        Lng:
+        ${lng.toFixed(6)}
+
+      `);
 
     },
+
 
     function(error) {
 
@@ -1086,10 +1218,15 @@ if (navigator.geolocation) {
 
     },
 
+
     {
+
       enableHighAccuracy: true,
+
       maximumAge: 10000,
+
       timeout: 5000
+
     }
 
   );
