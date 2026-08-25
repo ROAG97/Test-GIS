@@ -2,123 +2,656 @@
 <html lang="sv">
 <head>
   <meta charset="utf-8">
-  <title>Leaflet – Punkter med popup</title>
+  <title>Leaflet – Kustförsvarsanläggningar</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
   <style>
-    html, body { margin:0; height:100%; }
-    #map { width: 100%; height: 100vh; }
+    html, body {
+      margin: 0;
+      height: 100%;
+    }
+
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
+
     .popup-content img {
       width: 150px;
       display: block;
       margin-bottom: 5px;
     }
+
     .popup-content b {
       color: #2a2a2a;
     }
+
+    /* ================================
+       EGEN LAGERMENY
+       ================================ */
+
+    .layer-menu {
+      background: white;
+      padding: 8px;
+      border-radius: 5px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+      font-family: Arial, sans-serif;
+      min-width: 230px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .layer-section {
+      margin-bottom: 5px;
+    }
+
+    .layer-header {
+      font-weight: bold;
+      cursor: pointer;
+      padding: 7px 5px;
+      user-select: none;
+    }
+
+    .layer-header:hover {
+      background: #f0f0f0;
+    }
+
+    .layer-options {
+      padding: 4px 8px 7px 8px;
+    }
+
+    .layer-options label {
+      display: block;
+      margin: 5px 0;
+      cursor: pointer;
+      font-weight: normal;
+    }
+
+    .layer-options input {
+      margin-right: 6px;
+    }
+
+    .layer-separator {
+      border-top: 1px solid #999;
+      margin: 8px 0;
+    }
   </style>
 </head>
+
 <body>
 
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
 
 const map = L.map("map").setView([56.0465, 12.6945], 10);
 
+
+// =====================================================
+// KARTUNDERLAG
+// =====================================================
+
 const osm = L.tileLayer(
   "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  { attribution: "© OpenStreetMap" }
+  {
+    attribution: "© OpenStreetMap"
+  }
 );
 
 const esriSat = L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  { attribution: "Tiles © Esri" }
+  {
+    attribution: "Tiles © Esri"
+  }
 );
 
-const ortho = L.tileLayer("tiles_ortho/{z}/{x}/{y}.jpg", {
-  attribution: "© Robert Agnarp",
-  minZoom: 16,
-  maxZoom: 23,
-  opacity: 0.7,
-  zIndex: 100
-});
+const ortho = L.tileLayer(
+  "tiles_ortho/{z}/{x}/{y}.jpg",
+  {
+    attribution: "© Robert Agnarp",
+    minZoom: 16,
+    maxZoom: 23,
+    opacity: 0.7,
+    zIndex: 100
+  }
+);
 
 osm.addTo(map);
 
-//L.control.layers(
-  //{
-    //"OpenStreetMap": osm,
-    //"Satellit (ESRI)": esriSat
-  //},
-  //{
-    //"Ortofoto (overlay)": ortho
-  //},
-  //{ collapsed: false }
-//).addTo(map);
 
-// ================================
-// LFV DRÖNARRESTRIKTIONER
-// ================================
+// =====================================================
+// LAGER
+// =====================================================
 
+// Drönare
 const lfvNoFlyLayer = L.layerGroup();
 const lfvRestrictedLayer = L.layerGroup();
 
+// Draktänder
 const draktanderRivenLayer = L.layerGroup();
 const draktanderKvarLayer = L.layerGroup();
 const draktanderBevaradLayer = L.layerGroup();
 
-L.control.layers(
-  {
-    "OpenStreetMap": osm,
-    "Satellit (ESRI)": esriSat
-  },
-  {
-    "Ortofoto (overlay)": ortho,
-    "🔴 Drönare – tillstånd krävs": lfvNoFlyLayer,
-    "🟠 Drönare – begränsad": lfvRestrictedLayer,
+// Bunkrar
+const bunkerLayers = {};
 
-    "🔴 Draktänder – rivna": draktanderRivenLayer,
-    "🟢 Draktänder – kvar": draktanderKvarLayer,
-    "🟠 Draktänder – bevarade/flyttade": draktanderBevaradLayer,
 
-  },
-  { collapsed: false }
-).addTo(map);
+// =====================================================
+// SVG-IKONER
+// =====================================================
+
+const bunkerIcons = {
+
+  "Observationsvärn": L.icon({
+    iconUrl: "icons/Observationsvärn.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+
+  "Skyddsrum": L.icon({
+    iconUrl: "icons/SKYDDSRUM.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+
+  "KG": L.icon({
+    iconUrl: "icons/KG.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+
+  "PV": L.icon({
+    iconUrl: "icons/PV.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+
+  "KSP": L.icon({
+    iconUrl: "icons/QGIS.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+
+  "KSP I": L.icon({
+    iconUrl: "icons/KSPI.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+
+  "KSP II": L.icon({
+    iconUrl: "icons/KSPII.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+
+  "KSP III": L.icon({
+    iconUrl: "icons/KSPIII.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+
+  "KSP IV": L.icon({
+    iconUrl: "icons/KSPIV.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  }),
+
+  "KSP V": L.icon({
+    iconUrl: "icons/KSPV.svg",
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16]
+  })
+
+};
+
+
+// =====================================================
+// SKAPA BUNKER-LAGER
+// =====================================================
+
+Object.keys(bunkerIcons).forEach(typ => {
+  bunkerLayers[typ] = L.layerGroup();
+});
+
+
+// =====================================================
+// EGEN LAGERMENY
+// =====================================================
+
+const layerMenu = L.control({
+  position: "topright"
+});
+
+layerMenu.onAdd = function(map) {
+
+  const div = L.DomUtil.create("div", "layer-menu");
+
+  div.innerHTML = `
+
+    <!-- KARTUNDERLAG -->
+
+    <div class="layer-section">
+
+      <div class="layer-header" data-section="kartunderlag">
+        🗺️ Kartunderlag ▼
+      </div>
+
+      <div class="layer-options" id="kartunderlag">
+
+        <label>
+          <input type="radio"
+                 name="basemap"
+                 id="osmRadio"
+                 checked>
+          OpenStreetMap
+        </label>
+
+        <label>
+          <input type="radio"
+                 name="basemap"
+                 id="esriRadio">
+          Satellit (ESRI)
+        </label>
+
+        <label>
+          <input type="checkbox"
+                 id="orthoCheck">
+          Ortofoto
+        </label>
+
+      </div>
+
+    </div>
+
+
+    <!-- DRÖNARE -->
+
+    <div class="layer-section">
+
+      <div class="layer-header" data-section="dronare">
+        🛩️ Drönarrestriktioner ▼
+      </div>
+
+      <div class="layer-options" id="dronare">
+
+        <label>
+          <input type="checkbox"
+                 id="lfvRed">
+          🔴 Tillstånd krävs
+        </label>
+
+        <label>
+          <input type="checkbox"
+                 id="lfvOrange">
+          🟠 Begränsad
+        </label>
+
+      </div>
+
+    </div>
+
+
+    <!-- DRAKTÄNDER -->
+
+    <div class="layer-section">
+
+      <div class="layer-header" data-section="draktander">
+        🧱 Draktänder ▼
+      </div>
+
+      <div class="layer-options" id="draktander">
+
+        <label>
+          <input type="checkbox"
+                 id="draktanderKvar">
+          🟢 Kvar
+        </label>
+
+        <label>
+          <input type="checkbox"
+                 id="draktanderBevarad">
+          🟠 Bevarade/flyttade
+        </label>
+
+        <label>
+          <input type="checkbox"
+                 id="draktanderRiven">
+          🔴 Rivna
+        </label>
+
+      </div>
+
+    </div>
+
+
+    <!-- BUNKRAR -->
+
+    <div class="layer-section">
+
+      <div class="layer-header" data-section="bunkrar">
+        🏰 Bunkertyper ▼
+      </div>
+
+      <div class="layer-options" id="bunkrar">
+
+        <label>
+          <input type="checkbox" data-bunker="KSP">
+          KSP
+        </label>
+
+        <label>
+          <input type="checkbox" data-bunker="KSP I">
+          KSP I
+        </label>
+
+        <label>
+          <input type="checkbox" data-bunker="KSP II">
+          KSP II
+        </label>
+
+        <label>
+          <input type="checkbox" data-bunker="KSP III">
+          KSP III
+        </label>
+
+        <label>
+          <input type="checkbox" data-bunker="KSP IV">
+          KSP IV
+        </label>
+
+        <label>
+          <input type="checkbox" data-bunker="KSP V">
+          KSP V
+        </label>
+
+        <label>
+          <input type="checkbox" data-bunker="Observationsvärn">
+          Observationsvärn
+        </label>
+
+        <label>
+          <input type="checkbox" data-bunker="Skyddsrum">
+          Skyddsrum
+        </label>
+
+        <label>
+          <input type="checkbox" data-bunker="KG">
+          KG
+        </label>
+
+        <label>
+          <input type="checkbox" data-bunker="PV">
+          PV
+        </label>
+
+      </div>
+
+    </div>
+
+  `;
+
+  L.DomEvent.disableClickPropagation(div);
+
+  return div;
+};
+
+layerMenu.addTo(map);
+
+
+// =====================================================
+// HOPFÄLLNING AV MENYER
+// =====================================================
+
+document.addEventListener("click", function(e) {
+
+  const header = e.target.closest(".layer-header");
+
+  if (!header) {
+    return;
+  }
+
+  const sectionId = header.dataset.section;
+  const section = document.getElementById(sectionId);
+
+  if (!section) {
+    return;
+  }
+
+  if (section.style.display === "none") {
+
+    section.style.display = "block";
+
+    header.textContent =
+      header.textContent.replace("▶", "▼");
+
+  } else {
+
+    section.style.display = "none";
+
+    header.textContent =
+      header.textContent.replace("▼", "▶");
+
+  }
+
+});
+
+
+// =====================================================
+// KARTUNDERLAG – FUNKTIONER
+// =====================================================
+
+document.getElementById("osmRadio").addEventListener(
+  "change",
+  function() {
+
+    if (this.checked) {
+
+      map.removeLayer(esriSat);
+      map.addLayer(osm);
+
+    }
+
+  }
+);
+
+
+document.getElementById("esriRadio").addEventListener(
+  "change",
+  function() {
+
+    if (this.checked) {
+
+      map.removeLayer(osm);
+      map.addLayer(esriSat);
+
+    }
+
+  }
+);
+
+
+document.getElementById("orthoCheck").addEventListener(
+  "change",
+  function() {
+
+    if (this.checked) {
+      map.addLayer(ortho);
+    } else {
+      map.removeLayer(ortho);
+    }
+
+  }
+);
+
+
+// =====================================================
+// DRÖNARRESTRIKTIONER – CHECKBOXAR
+// =====================================================
+
+document.getElementById("lfvRed").addEventListener(
+  "change",
+  function() {
+
+    if (this.checked) {
+      map.addLayer(lfvNoFlyLayer);
+    } else {
+      map.removeLayer(lfvNoFlyLayer);
+    }
+
+  }
+);
+
+
+document.getElementById("lfvOrange").addEventListener(
+  "change",
+  function() {
+
+    if (this.checked) {
+      map.addLayer(lfvRestrictedLayer);
+    } else {
+      map.removeLayer(lfvRestrictedLayer);
+    }
+
+  }
+);
+
+
+// =====================================================
+// DRAKTÄNDER – CHECKBOXAR
+// =====================================================
+
+document.getElementById("draktanderKvar").addEventListener(
+  "change",
+  function() {
+
+    if (this.checked) {
+      map.addLayer(draktanderKvarLayer);
+    } else {
+      map.removeLayer(draktanderKvarLayer);
+    }
+
+  }
+);
+
+
+document.getElementById("draktanderBevarad").addEventListener(
+  "change",
+  function() {
+
+    if (this.checked) {
+      map.addLayer(draktanderBevaradLayer);
+    } else {
+      map.removeLayer(draktanderBevaradLayer);
+    }
+
+  }
+);
+
+
+document.getElementById("draktanderRiven").addEventListener(
+  "change",
+  function() {
+
+    if (this.checked) {
+      map.addLayer(draktanderRivenLayer);
+    } else {
+      map.removeLayer(draktanderRivenLayer);
+    }
+
+  }
+);
+
+
+// =====================================================
+// BUNKERTYPER – CHECKBOXAR
+// =====================================================
+
+document.querySelectorAll(
+  "[data-bunker]"
+).forEach(checkbox => {
+
+  checkbox.addEventListener(
+    "change",
+    function() {
+
+      const typ = this.dataset.bunker;
+      const layer = bunkerLayers[typ];
+
+      if (!layer) {
+        return;
+      }
+
+      if (this.checked) {
+        map.addLayer(layer);
+      } else {
+        map.removeLayer(layer);
+      }
+
+    }
+  );
+
+});
+
+
+// =====================================================
+// LFV DRÖNARKARTA
+// =====================================================
 
 fetch("data/lfv_dronarkarta.geojson")
+
   .then(res => {
+
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
+
     return res.json();
+
   })
+
   .then(data => {
 
     L.geoJSON(data, {
 
       style: function(feature) {
 
-        const farg = feature.properties?.Färg;
+        const farg =
+          feature.properties?.Färg;
 
         if (farg === "RÖD") {
+
           return {
             color: "#d00000",
             weight: 3,
             fillColor: "#d00000",
             fillOpacity: 0.08
           };
+
         }
 
         if (farg === "ORANGE") {
+
           return {
             color: "#ff8800",
             weight: 3,
             fillColor: "#ff8800",
             fillOpacity: 0.08
           };
+
         }
 
         return {
@@ -126,123 +659,174 @@ fetch("data/lfv_dronarkarta.geojson")
           weight: 2,
           fillOpacity: 0
         };
+
       },
 
-      onEachFeature: function(feature, layer) {
+      onEachFeature:
+        function(feature, layer) {
 
-        const p = feature.properties || {};
+          const p =
+            feature.properties || {};
 
-        const popup = `
-          <div class="popup-content">
-            <b>Område:</b> ${p.NAMEOFAREA || "-"}<br>
-            <b>Typ:</b> ${p.TYPEOFAREA || "-"}<br>
-            <b>Plats:</b> ${p.LOCATION || "-"}<br>
-            <b>Undre gräns:</b> ${p.LOWER || "-"}<br>
-            <b>Övre gräns:</b> ${p.UPPER || "-"}<br>
-            <b>Gäller från:</b> ${p.WEF || "-"}<br>
-            <b>Klass:</b> ${p.Färg || "-"}
-          </div>
-        `;
+          const popup = `
 
-        layer.bindPopup(popup);
+            <div class="popup-content">
 
-        if (p.Färg === "RÖD") {
-          lfvNoFlyLayer.addLayer(layer);
+              <b>Område:</b>
+              ${p.NAMEOFAREA || "-"}<br>
+
+              <b>Typ:</b>
+              ${p.TYPEOFAREA || "-"}<br>
+
+              <b>Plats:</b>
+              ${p.LOCATION || "-"}<br>
+
+              <b>Undre gräns:</b>
+              ${p.LOWER || "-"}<br>
+
+              <b>Övre gräns:</b>
+              ${p.UPPER || "-"}<br>
+
+              <b>Gäller från:</b>
+              ${p.WEF || "-"}<br>
+
+              <b>Klass:</b>
+              ${p.Färg || "-"}
+
+            </div>
+
+          `;
+
+          layer.bindPopup(popup);
+
+          if (p.Färg === "RÖD") {
+            lfvNoFlyLayer.addLayer(layer);
+          }
+
+          if (p.Färg === "ORANGE") {
+            lfvRestrictedLayer.addLayer(layer);
+          }
+
         }
-
-        if (p.Färg === "ORANGE") {
-          lfvRestrictedLayer.addLayer(layer);
-        }
-      }
 
     });
 
-    // Rött lager på från början
-    lfvNoFlyLayer.addTo(map);
-
-    console.log("LFV GeoJSON laddat:", data.features.length, "features");
+    console.log(
+      "LFV GeoJSON laddat:",
+      data.features.length,
+      "features"
+    );
 
   })
+
   .catch(err => {
-    console.error("Misslyckades med att ladda LFV GeoJSON:", err);
+
+    console.error(
+      "Misslyckades med att ladda LFV GeoJSON:",
+      err
+    );
+
   });
 
-// ================================
+
+// =====================================================
 // DRAKTÄNDER
-// ================================
+// =====================================================
 
 fetch("data/draktander.geojson")
+
   .then(res => {
+
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
+
     return res.json();
+
   })
+
   .then(data => {
 
     L.geoJSON(data, {
 
-style: function(feature) {
+      style: function(feature) {
 
-  const status = feature.properties?.STATUS;
+        const status =
+          feature.properties?.STATUS;
 
-  if (status === "RIVET") {
-    return {
-      color: "#ff0000",
-      weight: 5,
-      opacity: 1
-    };
-  }
+        if (status === "RIVET") {
 
-  if (status === "KVAR") {
-    return {
-      color: "#00a000",
-      weight: 5,
-      opacity: 1
-    };
-  }
+          return {
+            color: "#ff0000",
+            weight: 5,
+            opacity: 1
+          };
 
-  if (status === "BEVARAD") {
-    return {
-      color: "#ff8800",
-      weight: 5,
-      opacity: 1
-    };
-  }
-
-  return {
-    color: "#888888",
-    weight: 4,
-    opacity: 1
-  };
-},
-
-
-      onEachFeature: function(feature, layer) {
-
-        const p = feature.properties || {};
-
-        const popup = `
-          <div class="popup-content">
-            <b>Status:</b> ${p.STATUS || "-"}<br>
-            <b>ID:</b> ${p.id || "-"}<br>
-          </div>
-        `;
-
-        layer.bindPopup(popup);
-
-        if (p.STATUS === "RIVET") {
-          draktanderRivenLayer.addLayer(layer);
         }
 
-        if (p.STATUS === "KVAR") {
-          draktanderKvarLayer.addLayer(layer);
+        if (status === "KVAR") {
+
+          return {
+            color: "#00a000",
+            weight: 5,
+            opacity: 1
+          };
+
         }
 
-        if (p.STATUS === "BEVARAD") {
-        draktanderBevaradLayer.addLayer(layer);
+        if (status === "BEVARAD") {
+
+          return {
+            color: "#ff8800",
+            weight: 5,
+            opacity: 1
+          };
+
         }
-      }
+
+        return {
+          color: "#888888",
+          weight: 4,
+          opacity: 1
+        };
+
+      },
+
+      onEachFeature:
+        function(feature, layer) {
+
+          const p =
+            feature.properties || {};
+
+          const popup = `
+
+            <div class="popup-content">
+
+              <b>Status:</b>
+              ${p.STATUS || "-"}<br>
+
+              <b>ID:</b>
+              ${p.id || "-"}
+
+            </div>
+
+          `;
+
+          layer.bindPopup(popup);
+
+          if (p.STATUS === "RIVET") {
+            draktanderRivenLayer.addLayer(layer);
+          }
+
+          if (p.STATUS === "KVAR") {
+            draktanderKvarLayer.addLayer(layer);
+          }
+
+          if (p.STATUS === "BEVARAD") {
+            draktanderBevaradLayer.addLayer(layer);
+          }
+
+        }
 
     });
 
@@ -253,190 +837,263 @@ style: function(feature) {
     );
 
   })
+
   .catch(err => {
-    console.error("Misslyckades med att ladda Draktänder GeoJSON:", err);
+
+    console.error(
+      "Misslyckades med att ladda Draktänder:",
+      err
+    );
+
   });
 
-// ===============================
-// Bunker punkter
-// ===============================
 
-const bunkerIcons = {
-
-   "Observationsvärn": L.icon({
-    iconUrl: "icons/Observationsvärn.svg",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  }),
-     "Skyddsrum": L.icon({
-    iconUrl: "icons/SKYDDSRUM.svg",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  }),
-     "KG": L.icon({
-    iconUrl: "icons/KG.svg",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  }),
-     "PV": L.icon({
-    iconUrl: "icons/PV.svg",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  }),
-       "KSP": L.icon({
-    iconUrl: "icons/QGIS.svg",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  }),
-     "KSP I": L.icon({
-    iconUrl: "icons/KSPI.svg",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  }),
-     "KSP II": L.icon({
-    iconUrl: "icons/KSPII.svg",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  }),
-   "KSP III": L.icon({
-    iconUrl: "icons/KSPIII.svg",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  }),
-    "KSP IV": L.icon({
-    iconUrl: "icons/KSPIV.svg",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  }),
-     "KSP V": L.icon({
-    iconUrl: "icons/KSPV.svg",
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -16]
-  }),
-
-};
+// =====================================================
+// BUNKERLAGER
+// =====================================================
 
 fetch("data/BunkerLayer.geojson")
+
   .then(res => {
+
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
+
     return res.json();
+
   })
+
   .then(data => {
 
-    const layer = L.geoJSON(data, {
+    L.geoJSON(data, {
 
-      pointToLayer: (feature, latlng) => {
+      pointToLayer:
+        function(feature, latlng) {
 
-  const typ = feature.properties?.Typ;
-  const icon = bunkerIcons[typ];
+          const typ =
+            feature.properties?.Typ;
 
-  if (icon) {
-    return L.marker(latlng, {
-      icon: icon
-    });
-  }
+          const icon =
+            bunkerIcons[typ];
 
-  return L.marker(latlng);
-},
+          if (icon) {
 
-      onEachFeature: (feature, layer) => {
+            return L.marker(
+              latlng,
+              {
+                icon: icon
+              }
+            );
 
-        const p = feature.properties || {};
+          }
 
-        const hasImage =
-          p.Bild && p.Bild !== "-" && p.Bild.trim() !== "";
+          return L.marker(latlng);
 
-        const hasModel =
-          p.Modell && p.Modell !== "-" && p.Modell.trim() !== "";
+        },
 
-        const popup = `
-          <div class="popup-content">
 
-            <b>Typ:</b> ${p.Typ || ""}<br>
-            <b>Nr:</b> ${p.Nr || ""}<br>
-            <b>Tillgänglighet:</b> ${p["Tillgänglighet"] || ""}<br>
-            <b>Parkering:</b> ${p.Parkering || ""}<br>
-            <b>Mindre kuriosa:</b> ${p["Mindre kuriosa"] || ""}<br>
-            <b>Status:</b> ${p.Status || ""}<br>
-            <b>Plomberad:</b> ${p.Plomberad || ""}<br>
-            <b>Besökt:</b> ${p["Besökt"] || ""}<br>
-            <b>Övrigt:</b> ${p["Övrigt"] || ""}<br>
+      onEachFeature:
+        function(feature, layer) {
 
-            ${
-              hasImage
+          const p =
+            feature.properties || {};
+
+          const typ =
+            p.Typ;
+
+          const hasImage =
+            p.Bild &&
+            p.Bild !== "-" &&
+            p.Bild.trim() !== "";
+
+          const hasModel =
+            p.Modell &&
+            p.Modell !== "-" &&
+            p.Modell.trim() !== "";
+
+
+          const popup = `
+
+            <div class="popup-content">
+
+              <b>Typ:</b>
+              ${p.Typ || ""}<br>
+
+              <b>Nr:</b>
+              ${p.Nr || ""}<br>
+
+              <b>Tillgänglighet:</b>
+              ${p["Tillgänglighet"] || ""}<br>
+
+              <b>Parkering:</b>
+              ${p.Parkering || ""}<br>
+
+              <b>Mindre kuriosa:</b>
+              ${p["Mindre kuriosa"] || ""}<br>
+
+              <b>Status:</b>
+              ${p.Status || ""}<br>
+
+              <b>Plomberad:</b>
+              ${p.Plomberad || ""}<br>
+
+              <b>Besökt:</b>
+              ${p["Besökt"] || ""}<br>
+
+              <b>Övrigt:</b>
+              ${p["Övrigt"] || ""}<br>
+
+
+              ${
+                hasImage
+
                 ? `
-                  <a href="${p.Bild}" target="_blank">
+
+                  <a href="${p.Bild}"
+                     target="_blank">
+
                     <img
                       src="${p.Bild}"
                       alt="Bild ${p.Nr || ""}"
-                      style="width:280px;height:auto;border-radius:6px;cursor:zoom-in;"
+                      style="
+                        width:280px;
+                        height:auto;
+                        border-radius:6px;
+                        cursor:zoom-in;
+                      "
                     >
-                  </a><br>
+
+                  </a>
+
+                  <br>
+
                 `
+
                 : `<i>📷 Bild saknas</i><br>`
-            }
 
-            ${
-              hasModel
-                ? `<br>
-                   <a href="${p.Modell}" target="_blank">
-                     🔗 Visa 3D-modell
-                   </a>`
+              }
+
+
+              ${
+                hasModel
+
+                ? `
+
+                  <br>
+
+                  <a href="${p.Modell}"
+                     target="_blank">
+
+                    🔗 Visa 3D-modell
+
+                  </a>
+
+                `
+
                 : ""
+
+              }
+
+            </div>
+
+          `;
+
+
+          layer.bindPopup(
+            popup,
+            {
+              maxWidth: 400,
+              minWidth: 350
             }
+          );
 
-          </div>
-        `;
 
-        layer.bindPopup(popup, {
-          maxWidth: 400,
-          minWidth: 350
-        });
-      }
+          // Lägg objektet i rätt filterlager
 
-    }).addTo(map);
+          if (bunkerLayers[typ]) {
+
+            bunkerLayers[typ]
+              .addLayer(layer);
+
+          }
+
+        }
+
+    });
+
+    console.log(
+      "Bunkrar laddade:",
+      data.features.length,
+      "features"
+    );
 
   })
+
   .catch(err => {
-    console.error("Misslyckades med att ladda Bunker GeoJSON:", err);
+
+    console.error(
+      "Misslyckades med att ladda Bunker GeoJSON:",
+      err
+    );
+
   });
 
-if (navigator.geolocation) {
-  navigator.geolocation.watchPosition(
-    function(position) {
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
 
-      L.circleMarker([lat, lng], {
-        radius: 8,
-        color: '#ff8800',
-        fillColor: '#ff8800',
-        fillOpacity: 0.9
-      })
+// =====================================================
+// GPS POSITION
+// =====================================================
+
+if (navigator.geolocation) {
+
+  navigator.geolocation.watchPosition(
+
+    function(position) {
+
+      const lat =
+        position.coords.latitude;
+
+      const lng =
+        position.coords.longitude;
+
+
+      L.circleMarker(
+        [lat, lng],
+        {
+          radius: 8,
+          color: "#ff8800",
+          fillColor: "#ff8800",
+          fillOpacity: 0.9
+        }
+      )
+
       .addTo(map)
-      .bindPopup(`Din position:<br>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`);
+
+      .bindPopup(
+        `Din position:<br>
+         Lat: ${lat.toFixed(6)},
+         Lng: ${lng.toFixed(6)}`
+      );
+
     },
+
     function(error) {
-      console.warn("Geolocation misslyckades:", error.message);
+
+      console.warn(
+        "Geolocation misslyckades:",
+        error.message
+      );
+
     },
+
     {
       enableHighAccuracy: true,
       maximumAge: 10000,
       timeout: 5000
     }
+
   );
+
 }
 
 </script>
